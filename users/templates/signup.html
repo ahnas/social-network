@@ -41,14 +41,8 @@
                         $('#message').html('<div class="alert alert-success">' + response.message + '</div>');
                         $('#signupForm')[0].reset();
                     },
-                    error: function(xhr) {
-                        var errors = xhr.responseJSON;
-                        var errorMessage = '<div class="alert alert-danger"><ul>';
-                        $.each(errors, function(key, value) {
-                            errorMessage += '<li>' + value[0] + '</li>'; 
-                        });
-                        errorMessage += '</ul></div>';
-                        $('#message').html(errorMessage); 
+                    error: function() {
+                        $('#message').html('<div class="alert alert-danger">' + 'A user with this email already exists' + '</div>');
                     }
                 });
             });
