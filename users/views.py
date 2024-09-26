@@ -7,6 +7,9 @@ from rest_framework_simplejwt.tokens import AccessToken
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import login,logout
 import logging
+from rest_framework.decorators import api_view
+from django.core.paginator import Paginator
+from django.http import JsonResponse
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +29,6 @@ class LoginView(APIView):
         if serializer.is_valid():
             email = serializer.validated_data['email'] 
             password = serializer.validated_data['password']
-
             user = authenticate(email=email, password=password)
             if user is not None:
                 login(request, user)
@@ -53,3 +55,20 @@ def profile_view(request):
 def logout_view(request):
     logout(request)
     return redirect('loginf')
+
+
+@api_view(['GET'])
+def user_search(request):
+    query = request.GET.get('query', '')
+    users = User.objects.filter(email__icontains=query)
+    
+    paginator = Paginator(users, 10)  
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return Response({
+        'results': [{'email': user.email,} for user in page_obj],
+        'count': paginator.count,
+        'next': page_obj.has_next(),
+        'previous': page_obj.has_previous()
+    })

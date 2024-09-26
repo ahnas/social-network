@@ -37,3 +37,8 @@ class LoginSerializer(serializers.Serializer):
             'email': email,
             'password': password,
         }
+    
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['email', 'is_active', 'is_staff'] 
