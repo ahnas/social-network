@@ -77,7 +77,7 @@
                                 if (user.email !== loggedInEmail) {
                                     const buttonText = sentRequestEmails.has(user.email) ? "Friend request sent" : "Send Request";
                                     const buttonDisabled = sentRequestEmails.has(user.email) ? "disabled" : "";
-                                    const buttonClass = sentRequestEmails.has(user.email) ? "btn-secondary" : "btn-primary"; 
+                                    const buttonClass = sentRequestEmails.has(user.email) ? "btn-secondary" : "btn-primary";
 
                                     $('#searchResults tbody').append(`
                                         <tr>
@@ -152,11 +152,14 @@
                         button.html('<span class="requested">Friend request sent</span>').removeClass('btn-primary').addClass('btn-secondary').prop('disabled', true);
                     },
                     error: function (error) {
-                        console.error("Error sending friend request:", error);
+                        if (error.status === 400) {
+                            alert(error.responseJSON.error);
+                        } else {
+                            console.error("Error sending friend request:", error);
+                        }
                     }
                 });
             });
-
 
         });
     </script>
