@@ -17,8 +17,22 @@ class SignupView(APIView):
     def post(self, request):
         serializer = SignupSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return Response({"message": "User created successfully"}, status=status.HTTP_201_CREATED)
+            user = serializer.save() 
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+            refresh_token = str(refresh)
+
+            # Save tokens to the user instance
+            user.access_token = access_token
+            user.refresh_token = refresh_token
+            user.save()  # Save the user with tokens
+
+            return Response({
+                "message": "User created successfully",
+                "access_token": access_token,
+                "refresh_token": refresh_token
+            }, status=status.HTTP_201_CREATED)
+        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class LoginView(APIView):
@@ -33,8 +47,14 @@ class LoginView(APIView):
             if user is not None:
                 login(request, user)
                 refresh = RefreshToken.for_user(user)
-                
-                return redirect('profile') 
+                access_token = str(refresh.access_token)
+                refresh_token = str(refresh)
+
+                return Response({
+                    "message": "Login successful",
+                    "access_token": access_token,
+                    "refresh_token": refresh_token
+                }, status=status.HTTP_200_OK)
             else:
                 return Response({"error": "Invalid email or password"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -56,7 +76,7 @@ def logout_view(request):
     logout(request)
     return redirect('loginf')
 
-
+@login_required
 @api_view(['GET'])
 def user_search(request):
     query = request.GET.get('query', '')
