@@ -11,7 +11,7 @@ class SignupSerializer(serializers.ModelSerializer):
         fields = ['email', 'password']
 
     def create(self, validated_data):
-        email = validated_data['email'].lower()  # Ensure email is case insensitive
+        email = validated_data['email']
         password = validated_data['password']
         user = User.objects.create_user(email=email, password=password)
         return user
@@ -21,7 +21,7 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField()
 
     def validate(self, data):
-        email = data.get('email').lower()
+        email = data.get('email')
         password = data.get('password')
 
         user = authenticate(email=email, password=password)
