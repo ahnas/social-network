@@ -15,6 +15,7 @@ from django.shortcuts import get_object_or_404
 from .models import *
 from django.utils import timezone
 from datetime import timedelta
+from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
@@ -115,20 +116,32 @@ def send_friend_request(request):
     if request.method == "POST":
         from_email = request.POST.get('from_email')
         to_email = request.POST.get('to_email')
+
+        # Get the sender (from_email) and recipient (to_email) users
         from_user = get_object_or_404(User, email=from_email)
         to_user = get_object_or_404(User, email=to_email)
+
         now = timezone.now()
         one_minute_ago = now - timedelta(minutes=1)
+
+        # Check how many requests have been sent by this user in the last minute
         sent_requests_count = FriendRequest.objects.filter(
             from_user=from_user,
             created_at__gte=one_minute_ago
         ).count()
+
         if sent_requests_count >= 3:
             return JsonResponse({'error': 'You can only send 3 friend requests per minute.'}, status=400)
-        existing_request = FriendRequest.objects.filter(from_user=from_user, to_user=to_user).first()
-        if existing_request:
-            return JsonResponse({'message': 'Friend request already sent.'}, status=400)
-        friend_request = FriendRequest.objects.create(from_user=from_user, to_user=to_user, status='pending')
+
+        # Use atomic transactions to prevent race conditions
+        with transaction.atomic():
+            # Check if the friend request already exists
+            existing_request = FriendRequest.objects.filter(from_user=from_user, to_user=to_user).first()
+            if existing_request:
+                return JsonResponse({'message': 'Friend request already sent.'}, status=400)
+
+            # Create a new friend request
+            friend_request = FriendRequest.objects.create(from_user=from_user, to_user=to_user, status='pending')
 
         return JsonResponse({'message': 'Friend request sent successfully!'})
     else:
