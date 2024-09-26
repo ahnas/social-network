@@ -69,7 +69,9 @@
                         
                         if (data.results.length > 0) {
                             $.each(data.results, function (index, user) {
-                                $('#searchResults tbody').append('<tr><td>' + (index + 1) + ': ' + user.email + '</td></tr>');
+                                if(user.email)
+                                $('#searchResults tbody').append('<tr><td>' + (index + 1) + ': ' + user.email +'<button id="requestSent" class="btn btn-primary float-right">Sent Request</button>'+ '</td> </tr>');
+
                             });
                             $('#paginationControls ul').html('');  
                             if (data.previous) {
