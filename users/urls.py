@@ -9,4 +9,5 @@ urlpatterns = [
     path('profile/', profile_view, name='profile'),
     path('logout/', logout_view, name='logout'),
     path('search/', user_search, name='user_search'), 
+    path('send_friend_request/', send_friend_request, name='send_friend_request'),
 ]

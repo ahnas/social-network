@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User
+from .models import *
 
 class CustomUserAdmin(BaseUserAdmin):
     model = User
@@ -11,15 +11,15 @@ class CustomUserAdmin(BaseUserAdmin):
 
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-        ('Personal Info', {'fields': ()}),
-        ('Permissions', {'fields': ('is_staff', 'is_active', 'is_superuser','refresh_token','access_token', 'user_permissions')}),
+        ('Permissions', {'fields': ('is_staff', 'is_active', 'is_superuser', 'refresh_token', 'access_token', 'user_permissions')}),
     )
 
-    add_fieldsets = (
-        (None, {
-            'classes': ('wide',),
-            'fields': ('email', 'password1', 'password2', 'is_staff', 'is_active', 'is_superuser', 'user_permissions')}
-        ),
-    )
+class FriendRequestAdmin(admin.ModelAdmin):
+    model = FriendRequest
+    list_display = ('from_user', 'to_user', 'status', 'created_at')
+    search_fields = ('from_user__email', 'to_user__email')
+    list_filter = ('status',)
+
 
 admin.site.register(User, CustomUserAdmin)
+admin.site.register(FriendRequest, FriendRequestAdmin)

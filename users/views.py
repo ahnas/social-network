@@ -10,6 +10,9 @@ import logging
 from rest_framework.decorators import api_view
 from django.core.paginator import Paginator
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import get_object_or_404
+from .models import *
 
 logger = logging.getLogger(__name__)
 
@@ -81,14 +84,48 @@ def logout_view(request):
 def user_search(request):
     query = request.GET.get('query', '')
     users = User.objects.filter(email__icontains=query)
-    
+    friendRequests = FriendRequest.objects.all()
     paginator = Paginator(users, 10)  
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
+    user_data = [{'email': user.email} for user in page_obj]
+    friend_requests_data = [
+        {
+            'from_user': fr.from_user.email,
+            'to_user': fr.to_user.email,
+            'status': fr.status,
+            'created_at': fr.created_at.isoformat(),  
+        }
+        for fr in friendRequests
+    ]
+
     return Response({
-        'results': [{'email': user.email,} for user in page_obj],
+        'results': user_data,
         'count': paginator.count,
         'next': page_obj.has_next(),
-        'previous': page_obj.has_previous()
+        'previous': page_obj.has_previous(),
+        'friendRequests': friend_requests_data,
     })
+
+@csrf_exempt
+def send_friend_request(request):
+    if request.method == "POST":
+        from_email = request.POST.get('from_email')
+        to_email = request.POST.get('to_email')
+
+        # Get the sender (from_email) and recipient (to_email) users
+        from_user = get_object_or_404(User, email=from_email)
+        to_user = get_object_or_404(User, email=to_email)
+
+        # Check if the friend request already exists
+        existing_request = FriendRequest.objects.filter(from_user=from_user, to_user=to_user).first()
+        if existing_request:
+            return JsonResponse({'message': 'Friend request already sent.'}, status=400)
+
+        # Create a new friend request
+        friend_request = FriendRequest.objects.create(from_user=from_user, to_user=to_user, status='pending')
+
+        return JsonResponse({'message': 'Friend request sent successfully!'})
+    else:
+        return JsonResponse({'error': 'Invalid request method.'}, status=400)
