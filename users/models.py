@@ -44,15 +44,30 @@ class FriendRequest(models.Model):
         ('pending', 'Pending'),
         ('accepted', 'Accepted'),
         ('rejected', 'Rejected'),
+        ('blocked', 'Blocked'),
     ]
 
     from_user = models.ForeignKey(User, related_name='sent_requests', on_delete=models.CASCADE)
     to_user = models.ForeignKey(User, related_name='received_requests', on_delete=models.CASCADE)
-    status = models.CharField(max_length=10, choices=FRIEND_REQUEST_CHOICES, default='pending')
+    status = models.CharField(max_length=10, choices=FRIEND_REQUEST_CHOICES,)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ('from_user', 'to_user')  
 
+    def reject(self):
+        """Method to reject and delete the friend request."""
+        self.status = 'rejected'
+        self.save()
+        self.delete()  # Delete the instance after saving the rejection
+
+    def save(self, *args, **kwargs):
+        """Custom save method to check status before saving."""
+        if self.status == 'rejected':
+            self.delete()  # Automatically delete if status is rejected
+        else:
+            super(FriendRequest, self).save(*args, **kwargs) 
+
+
     def __str__(self):
-        return f"Friend request from {self.from_user.email} to {self.to_user.email}"
+        return f"Friend request from {self.from_user.email} to {self.to_user.email} - Status: {self.status}"

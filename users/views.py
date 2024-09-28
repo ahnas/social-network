@@ -1,6 +1,8 @@
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
+
+from .forms import AcceptFriendRequestForm
 from .serializers import *
 from django.shortcuts import redirect, render
 from rest_framework_simplejwt.tokens import AccessToken
@@ -16,8 +18,12 @@ from .models import *
 from django.utils import timezone
 from datetime import timedelta
 from django.db import transaction
+from django.views.decorators.http import require_POST
+from rest_framework.permissions import IsAuthenticated
+
 
 logger = logging.getLogger(__name__)
+
 
 class SignupView(APIView):
     def post(self, request):
@@ -76,7 +82,12 @@ def login_view(request):
 @login_required
 def profile_view(request):
     email = request.user.email
-    return render(request, 'profile.html', {'email': email})
+    incoming_friend_requests = FriendRequest.objects.filter(to_user=request.user, status='pending')
+    return render(request, 'profile.html', {
+        'email': email,
+        'incoming_requests_count': incoming_friend_requests.count(),
+        'incoming_requests': incoming_friend_requests
+    })
 
 def logout_view(request):
     logout(request)
@@ -116,15 +127,13 @@ def send_friend_request(request):
     if request.method == "POST":
         from_email = request.POST.get('from_email')
         to_email = request.POST.get('to_email')
-
-        # Get the sender (from_email) and recipient (to_email) users
+        status = request.POST.get('status')
         from_user = get_object_or_404(User, email=from_email)
         to_user = get_object_or_404(User, email=to_email)
 
         now = timezone.now()
         one_minute_ago = now - timedelta(minutes=1)
 
-        # Check how many requests have been sent by this user in the last minute
         sent_requests_count = FriendRequest.objects.filter(
             from_user=from_user,
             created_at__gte=one_minute_ago
@@ -132,17 +141,63 @@ def send_friend_request(request):
 
         if sent_requests_count >= 3:
             return JsonResponse({'error': 'You can only send 3 friend requests per minute.'}, status=400)
-
-        # Use atomic transactions to prevent race conditions
         with transaction.atomic():
-            # Check if the friend request already exists
             existing_request = FriendRequest.objects.filter(from_user=from_user, to_user=to_user).first()
             if existing_request:
                 return JsonResponse({'message': 'Friend request already sent.'}, status=400)
-
-            # Create a new friend request
-            friend_request = FriendRequest.objects.create(from_user=from_user, to_user=to_user, status='pending')
+            friend_request = FriendRequest.objects.create(from_user=from_user, to_user=to_user, status=status)
 
         return JsonResponse({'message': 'Friend request sent successfully!'})
     else:
         return JsonResponse({'error': 'Invalid request method.'}, status=400)
+    
+
+class AcceptFriendRequestFormView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, request_id):
+        # Retrieve the friend request by ID and ensure it's for the authenticated user
+        friend_request = get_object_or_404(FriendRequest, id=request_id, to_user=request.user)
+        
+        # Update the friend request with the new data (rejected or accepted)
+        form = AcceptFriendRequestForm(request.data, instance=friend_request)
+    
+        if form.is_valid():
+            # Save the updated friend request
+            friend_request = form.save()
+            serializer = FriendRequestSerializer(friend_request)
+
+            # Return the response
+            return Response({
+                "message": "Friend request updated successfully.",
+                "friend_request": serializer.data
+            }, status=status.HTTP_200_OK)
+
+        # Return form errors if the data is invalid
+        return Response({
+            "errors": form.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    
+    
+
+class AllRequest(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Debugging: Print the authenticated user's email
+        print(f"Authenticated user: {request.user.email}")
+
+        # Retrieve all incoming friend requests for the authenticated user
+        incoming_requests = FriendRequest.objects.all()
+
+        # Debugging: Print incoming requests
+        print(f"Incoming requests: {incoming_requests}")
+
+        # Serialize the incoming friend requests
+        incoming_serializer = FriendRequestSerializer(incoming_requests, many=True)
+
+        # Return the serialized data in the response
+        return Response({
+            "incoming_requests": incoming_serializer.data
+        }, status=status.HTTP_200_OK)

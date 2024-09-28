@@ -16,7 +16,7 @@ class CustomUserAdmin(BaseUserAdmin):
 
 class FriendRequestAdmin(admin.ModelAdmin):
     model = FriendRequest
-    list_display = ('from_user', 'to_user', 'status', 'created_at')
+    list_display = ('id','from_user', 'to_user', 'status', 'created_at')
     search_fields = ('from_user__email', 'to_user__email')
     list_filter = ('status',)
 

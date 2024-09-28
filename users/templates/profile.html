@@ -11,7 +11,66 @@
 
 <body>
     <div class="container">
-        <h2 class="mt-5 text-center">Profile Page</h2>
+        <h2 class="mt-5 text-center">Profile Page
+
+        </h2>
+        <h4 class="float-right" style="cursor: pointer;" data-toggle="modal" data-target="#friendRequestsModal">
+            Friend Request <i class="bi bi-bell" style="font-size: 1.5rem; position: relative;">
+                <span class="badge badge-success" id="friendRequestsCount">{{ incoming_requests_count }}</span>
+            </i>
+        </h4>
+
+
+        <!-- Friend Requests Modal -->
+        <div class="modal fade" id="friendRequestsModal" tabindex="-1" role="dialog"
+            aria-labelledby="friendRequestsModalLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="friendRequestsModalLabel">Incoming Friend Requests</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <ul id="friendRequestsList" class="list-group">
+                            {% for request in incoming_requests %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ request.from_user.email }}
+                                <div id="requestButtons-{{ request.id }}">
+                                    {% if request.status == 'accepted' %}
+                                    <!-- If already accepted, show the "Accepted" button -->
+                                    <button class="btn btn-secondary btn-sm" disabled>
+                                        Accepted
+                                    </button>
+                                    {% elif request.status == 'rejected' %}
+                                    <!-- If already rejected, show the "Rejected" button -->
+                                    <button class="btn btn-secondary btn-sm" disabled>
+                                        Rejected
+                                    </button>
+                                    {% else %}
+                                    <!-- If not accepted/rejected, show the "Accept" and "Reject" buttons -->
+                                    <button class="btn btn-success btn-sm acceptRequest" data-id="{{ request.id }}">
+                                        Accept
+                                    </button>
+                                    <button class="btn btn-danger btn-sm rejectRequest" data-id="{{ request.id }}">
+                                        Reject
+                                    </button>
+                                    {% endif %}
+                                </div>
+
+
+
+                            </li>
+                            {% empty %}
+                            <li class="list-group-item">No incoming friend requests.</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
 
         <h3 class=" mt-5">Welcome User : <span class="text-success">{{ email }}</span> </h3>
         <form method="POST" action="{% url 'logout' %}" class="text-right">
@@ -75,17 +134,66 @@
                         if (data.results.length > 0) {
                             $.each(data.results, function (index, user) {
                                 if (user.email !== loggedInEmail) {
-                                    const buttonText = sentRequestEmails.has(user.email) ? "Friend request sent" : "Send Request";
-                                    const buttonDisabled = sentRequestEmails.has(user.email) ? "disabled" : "";
-                                    const buttonClass = sentRequestEmails.has(user.email) ? "btn-secondary" : "btn-primary";
 
+                                    const friendRequests = data.friendRequests; // Assuming this is the array you provided
+
+                                    // Find if the current user's request is blocked or pending
+                                    const isBlocked = friendRequests.some(request => request.to_user === user.email && request.status === 'blocked');
+                                    const isPending = friendRequests.some(request => request.to_user === user.email && request.status === 'pending');
+
+
+
+
+
+
+                                    let buttonText, buttonClass, buttonDisabled = "";
+                                    let blockButtonHTML = ''; // HTML for the Block button
+                                    let requestButtonHTML = ''; // HTML for the Friend Request button
+                                    let afterBLocked = 'blockUser';
+                                    // Check if the user has a blocked or pending status
+                                    if (isBlocked) {
+                                        buttonText = "Unblock";
+                                        buttonClass = "btn-danger blocked"; // Disable the Block button
+                                        afterBLocked = ""
+                                        blockButtonHTML = `;
+                                        
+                                <button class="btn ${buttonClass} float-right ${afterBLocked}" data-id=69 data-email="${user.email}" ${buttonDisabled}>
+                                    <span >${buttonText}</span>
+                                </button>`;
+                                        requestButtonHTML = ''; // Don't show the "Send Request" button if blocked
+                                    } else if (isPending) {
+                                        buttonText = "Friend request sent";
+                                        buttonClass = "btn-secondary";
+                                        buttonDisabled = "disabled"; // Disable the Send Request button for pending requests
+                                        requestButtonHTML = `
+                                        <button class="btn ${buttonClass} float-right requestSent" data-email="${user.email}" ${buttonDisabled}>
+                                            <span class="requested">${buttonText}</span>
+                                        </button>`;
+                                        blockButtonHTML = ''; // Don't show the "Block" button if pending
+                                    } else {
+                                        buttonText = sentRequestEmails.has(user.email) ? "Friend request sent" : "Send Request";
+                                        buttonClass = sentRequestEmails.has(user.email) ? "btn-secondary" : "btn-primary";
+                                        buttonDisabled = sentRequestEmails.has(user.email) ? "disabled" : "";
+
+                                        // Show both buttons if no special status (blocked/pending)
+                                        requestButtonHTML = `
+                                        <button class="btn ${buttonClass} float-right requestSent" data-email="${user.email}" ${buttonDisabled}>
+                                            <span class="requested">${buttonText}</span>
+                                        </button>`;
+
+                                        blockButtonHTML = `
+                                        <button class="btn btn-warning float-right ${afterBLocked}" data-email="${user.email}" data-email="${user.email}" style="margin-right: 10px;">
+                                            Block
+                                        </button>`;
+                                    }
+
+                                    // Append the row with the correct buttons
                                     $('#searchResults tbody').append(`
-                                        <tr>
+                                        <tr data-id="${user.email}">
                                             <td>
                                                 ${user.email}
-                                                <button class="btn ${buttonClass} float-right requestSent" data-email="${user.email}" ${buttonDisabled}>
-                                                    <span class="requested">${buttonText}</span>
-                                                </button>
+                                                ${requestButtonHTML}
+                                                ${blockButtonHTML}
                                             </td>
                                         </tr>
                                     `);
@@ -110,6 +218,7 @@
                             $('#searchResults tbody').html('<tr><td>No users found.</td></tr>');
                         }
                     }
+
                 });
             }
 
@@ -146,10 +255,14 @@
                     data: {
                         'from_email': loggedInEmail,
                         'to_email': clickedUserEmail,
+                        'status': 'pending',
                         'csrfmiddlewaretoken': '{{ csrf_token }}'
                     },
                     success: function (response) {
+                        // Update UI on success
                         button.html('<span class="requested">Friend request sent</span>').removeClass('btn-primary').addClass('btn-secondary').prop('disabled', true);
+                        // Hide the Block button
+                        button.siblings('.blockUser').remove();
                     },
                     error: function (error) {
                         if (error.status === 400) {
@@ -160,9 +273,159 @@
                     }
                 });
             });
+            $(document).on('click', '.acceptRequest', function (e) {
+                e.preventDefault();
+                var id = $(this).data('id');
+                var accessToken = localStorage.getItem('access_token');
+
+                $.ajax({
+                    url: "{% url 'accept_friend_request' request_id='0' %}".replace('0', id),
+                    type: 'PUT',
+                    headers: {
+                        'Authorization': 'Bearer ' + accessToken,
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json'
+                    },
+                    data: JSON.stringify({
+                        'status': 'accepted'
+                    }),
+                    success: function (response) {
+                        console.log(response.message);
+                        $('#requestButtons-' + id).html(`
+                    <button class="btn btn-secondary btn-sm" disabled>
+                        Accepted
+                    </button>
+                `);
+                    },
+                    error: function (xhr, status, error) {
+                        console.log("An error occurred:", xhr.responseJSON || error);
+                        alert("Error accepting friend request: " + (xhr.responseJSON.detail || error));
+                    }
+                });
+            });
+
+
+            $(document).on('click', '.rejectRequest', '.blocked', function (e) {
+                e.preventDefault();  // Prevent default button behavior
+                var id = $(this).data('id');  // Get the friend request ID
+                var accessToken = localStorage.getItem('access_token');  // Get the access token
+
+                $.ajax({
+                    url: "{% url 'accept_friend_request' request_id='0' %}".replace('0', id),  // Replace with your URL template tag
+                    type: 'PUT',  // Specify the HTTP method
+                    headers: {
+                        'Authorization': 'Bearer ' + accessToken,  // Include the Bearer token
+                        'X-CSRFToken': '{{ csrf_token }}',  // Include the CSRF token
+                        'Content-Type': 'application/json'  // Set the content type to JSON
+                    },
+                    data: JSON.stringify({
+                        'status': 'rejected'  // Set the status to rejected
+                    }),
+                    success: function (response) {
+                        console.log(response.message);
+                        $('#requestButtons-' + id).html(`
+                    <button class="btn btn-secondary btn-sm" disabled>
+                        Rejected
+                    </button>
+                `);
+                    },
+                    error: function (xhr, status, error) {
+                        console.log("An error occurred:", xhr.responseJSON || error);  // Handle error response
+                        alert("Error rejecting friend request: " + (xhr.responseJSON.detail || error));  // Alert user
+                    }
+                });
+            });
+
+
+            $(document).on('click', '.blockUser', function (e) {
+                e.preventDefault();
+                var clickedUserEmail = $(this).data('email');
+                var id = $(this).data('id');
+                var button = $(this);
+                $.ajax({
+                    type: "POST",
+                    url: "/send_friend_request/",
+                    data: {
+                        'from_email': loggedInEmail,
+                        'to_email': clickedUserEmail,
+                        'status': 'blocked',
+                        'csrfmiddlewaretoken': '{{ csrf_token }}'
+                    },
+                    success: function (response) {
+                        // Update UI on success
+                        button.html('<span class="blocked" id="3">Unblock</span>').removeClass('btn-warning').addClass('btn-danger').prop('disabled', true);
+                        // Hide the Send Request button
+                        button.siblings('.requestSent').remove();
+                    },
+                    error: function (error) {
+                        if (error.status === 400) {
+                            alert(error.responseJSON.error);
+                        } else {
+                            console.error("Error blocking user:", error);
+                        }
+                    }
+                });
+            });
+
+            $(document).on('click', '.blocked', function (e) {
+                e.preventDefault();
+
+                // Get the clicked user's email and store it
+                var clickedUserEmail = $(this).data('email');
+                var button = $(this);
+
+                // Retrieve the access token from localStorage
+                var accessToken = localStorage.getItem('accessToken');
+                console.log(accessToken, "accessToken");
+
+
+                // Fetch all friend requests
+                $.ajax({
+                    type: "GET",
+                    url: "/friend_requests/", // URL to fetch incoming friend requests
+                    success: function (response) {
+                        // Find the request that matches the clicked user's email
+                        const matchedRequest = response.incoming_requests.find(request => request.to_user_email === clickedUserEmail);
+                        console.log(matchedRequest, "matchedRequest1");
+
+                        if (matchedRequest) {
+                            console.log(matchedRequest, "matchedRequest2");
+
+                            // Update the status to 'rejected'
+                            $.ajax({
+                                url: "/accept_friend_request/" + matchedRequest.id + "/",  // URL to accept/reject the friend request
+                                type: 'PUT',  // Specify the HTTP method
+                                headers: {
+                                    'Authorization': 'Bearer ' + accessToken,  // Include the Bearer token
+                                    'X-CSRFToken': '{{ csrf_token }}',  // CSRF token from Django template context
+                                    'Content-Type': 'application/json'  // Set the content type to JSON
+                                },
+                                data: JSON.stringify({
+                                    'status': 'rejected'  // Set the status to rejected
+                                }),
+                                success: function (response) {
+                                    console.log(response.message);
+                                },
+                                error: function (xhr, status, error) {
+                                    console.error("Error occurred:", xhr.responseJSON || error);
+                                    alert("Error rejecting friend request: " + (xhr.responseJSON.detail || error));
+                                }
+                            });
+                        } else {
+                            console.log("No matching request found for:", clickedUserEmail);
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error("Error fetching friend requests:", xhr.responseJSON || error);
+                        alert("Error fetching friend requests: " + (xhr.responseJSON.detail || error));
+                    }
+                });
+            });
+
 
         });
     </script>
+
 </body>
 
 </html>
